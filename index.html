@@ -1,4 +1,51 @@
 
+async function translateText(text) {
+  const cleanText = text.trim();
+
+  if (!cleanText) return text;
+
+  const url =
+    "https://api.mymemory.translated.net/get?q=" +
+    encodeURIComponent(cleanText) +
+    "&langpair=en|si&mt=1";
+
+  let response;
+
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw new Error(
+      "Internet සම්බන්ධතාව පරීක්ෂා කරන්න."
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      "Translation සේවාව දැනට ක්‍රියා නොකරයි. නැවත උත්සාහ කරන්න."
+    );
+  }
+
+  const data = await response.json();
+
+  if (
+    data.responseStatus !== 200 ||
+    !data.responseData ||
+    !data.responseData.translatedText
+  ) {
+    throw new Error(
+      data.responseDetails ||
+      "පරිවර්තනය අසාර්ථකයි. පසුව නැවත උත්සාහ කරන්න."
+    );
+  }
+
+  return data.responseData.translatedText
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 <!DOCTYPE html>
 <html lang="si">
 <head>
