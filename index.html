@@ -4,55 +4,241 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sinhala Sub Maker</title>
+<title>Sinhala Subtitles Maker</title>
 <style>
-body{font-family:Arial,sans-serif;background:#101827;color:white;padding:20px;max-width:650px;margin:auto}
-h1{color:#55e6a5}
-.box{background:#1e293b;padding:18px;border-radius:14px;margin:15px 0}
-button{background:#22c55e;color:#07130c;border:0;padding:12px;border-radius:8px;font-size:16px;margin:8px 0}
-textarea{width:100%;height:150px;box-sizing:border-box;border-radius:8px;padding:10px;font-size:16px}
-input{max-width:100%;margin:12px 0}
+body {
+  font-family: Arial, sans-serif;
+  background: #101827;
+  color: white;
+  padding: 20px;
+  max-width: 650px;
+  margin: auto;
+}
+h1 { color: #55e5a1; }
+.box {
+  background: #1c2739;
+  padding: 16px;
+  margin: 15px 0;
+  border-radius: 12px;
+}
+button {
+  background: #22c55e;
+  color: #07130c;
+  border: 0;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  width: 100%;
+  margin-top: 12px;
+}
+input, textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+}
+textarea {
+  min-height: 180px;
+  background: #fff;
+  color: #111;
+}
+button:disabled { opacity: .5; }
+#status { white-space: pre-wrap; color: #55e5a1; }
 </style>
 </head>
 <body>
-<h1>🇱🇰 Sinhala Sub Maker</h1>
-<p>සිංහල උපසිරැසි හදාගන්න ඔයාගේම website එක!</p>
+
+<h1>🇱🇰 Sinhala Subtitles Maker</h1>
+<p>English Subtitles සිංහලට පරිවර්තනය කරන්න.</p>
 
 <div class="box">
-<h3>1. Subtitle file එක තෝරන්න</h3>
-<input type="file" id="file" accept=".srt,.txt">
-<button onclick="loadFile()">File එක විවෘත කරන්න</button>
+  <h3>1. English SRT File එක තෝරන්න</h3>
+  <input type="file" id="file" accept=".srt,.txt">
+  <button onclick="loadFile()">File එක Load කරන්න</button>
 </div>
 
 <div class="box">
-<h3>2. Subtitle text</h3>
-<textarea id="txt" placeholder="ඔයාගේ subtitle text එක මෙතනට දාන්න..."></textarea>
-<button onclick="downloadSrt()">සිංහල Subtitle එක Download කරන්න</button>
+  <h3>2. සිංහලට පරිවර්තනය කරන්න</h3>
+  <p>English → සිංහල</p>
+  <button id="translateBtn" onclick="translateSRT()">
+    සිංහලට Translate කරන්න
+  </button>
+  <p id="status">SRT file එකක් තෝරන්න.</p>
 </div>
 
 <div class="box">
-<h3>3. Video එක තෝරන්න</h3>
-<input type="file" id="video" accept="video/*">
-<p>Video එකෙන් subtitles ස්වයංක්‍රීයව හදන්න ඉදිරි අදියරේදී AI පහසුකම එකතු කරමු.</p>
+  <h3>3. Subtitle Text</h3>
+  <textarea id="txt" placeholder="Subtitle text මෙතන පෙන්වයි..."></textarea>
+  <button onclick="downloadSrt()">සිංහල SRT Download කරන්න</button>
 </div>
 
 <script>
-function loadFile(){
-const f=document.getElementById('file').files[0];
-if(!f){alert('මුලින් subtitle file එකක් තෝරන්න');return}
-const r=new FileReader();
-r.onload=()=>document.getElementById('txt').value=r.result;
-r.readAsText(f);
+let originalSRT = "";
+
+function loadFile() {
+  const file = document.getElementById("file").files[0];
+
+  if (!file) {
+    alert("මුලින් SRT file එකක් තෝරන්න.");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    originalSRT = e.target.result.replace(/^\uFEFF/, "");
+    document.getElementById("txt").value = originalSRT;
+    document.getElementById("status").textContent =
+      "File එක Load වුණා. දැන් Translate කරන්න.";
+  };
+
+  reader.readAsText(file, "UTF-8");
 }
-function downloadSrt(){
-const text=document.getElementById('txt').value;
-if(!text.trim()){alert('මුලින් subtitle text එක දාන්න');return}
-const blob=new Blob(['\ufeff'+text],{type:'text/plain;charset=utf-8'});
-const a=document.createElement('a');
-a.href=URL.createObjectURL(blob);
-a.download='sinhala-subtitles.srt';
-a.click();
-URL.revokeObjectURL(a.href);
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function translateText(text) {
+  const url =
+    "https://api.mymemory.translated.net/get?q=" +
+    encodeURIComponent(text) +
+    "&langpair=en|si";
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Translation service එකට සම්බන්ධ වෙන්න බැහැ.");
+  }
+
+  const data = await response.json();
+
+  if (data.responseStatus !== 200 ||
+      !data.responseData ||
+      !data.responseData.translatedText) {
+    throw new Error(
+      data.responseDetails || "පරිවර්තනය අසාර්ථකයි."
+    );
+  }
+
+  return data.responseData.translatedText
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+async function translateSRT() {
+  const btn = document.getElementById("translateBtn");
+  const status = document.getElementById("status");
+
+  const input = document.getElementById("txt").value.trim();
+  if (!input) {
+    alert("මුලින් SRT file එකක් Load කරන්න.");
+    return;
+  }
+
+  if (!/-->\s*\d{2}:\d{2}:\d{2}/.test(input)) {
+    alert("නිවැරදි SRT subtitle file එකක් ලබා දෙන්න.");
+    return;
+  }
+
+  if (!confirm("Subtitle පරිවර්තනය ආරම්භ කරන්නද?")) return;
+
+  btn.disabled = true;
+
+  const blocks = input.split(/\r?\n\s*\r?\n/);
+  const output = [];
+  let done = 0;
+  let total = 0;
+
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/);
+    if (lines.some(line => line.includes("-->"))) {
+      total++;
+    }
+  }
+
+  try {
+    for (const block of blocks) {
+      const lines = block.split(/\r?\n/);
+      const timeIndex = lines.findIndex(line => line.includes("-->"));
+
+      if (timeIndex === -1) {
+        output.push(block);
+        continue;
+      }
+
+      const before = lines.slice(0, timeIndex + 1);
+      const subtitle = lines.slice(timeIndex + 1)
+        .filter(line => line.trim() !== "");
+
+      if (subtitle.length === 0) {
+        output.push(block);
+        continue;
+      }
+
+      const translated = [];
+
+      // Subtitle lines වෙන වෙනම පරිවර්තනය කරයි.
+      for (const line of subtitle) {
+        translated.push(await translateText(line));
+      }
+
+      output.push([...before, ...translated].join("\n"));
+      done++;
+
+      status.textContent =
+        "පරිවර්තනය වෙමින් පවතී: " + done + " / " + total;
+
+      document.getElementById("txt").value =
+        output.join("\n\n");
+
+      // Free service එකට ඉල්ලීම් ඉතා වේගයෙන් නොයැවීමට.
+      await sleep(500);
+    }
+
+    document.getElementById("txt").value =
+      output.join("\n\n");
+
+    status.textContent =
+      "පරිවර්තනය අවසන්! " + done +
+      " subtitle කොටස් සකස් කළා. Download කරන්න.";
+
+  } catch (error) {
+    document.getElementById("txt").value =
+      output.join("\n\n");
+    status.textContent =
+      "දෝෂයක්: " + error.message +
+      "\nනැවත උත්සාහ කරන්න. දැනට පරිවර්තනය කළ කොටස් රැකගෙන ඇත.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function downloadSrt() {
+  const text = document.getElementById("txt").value;
+
+  if (!text.trim()) {
+    alert("Download කරන්න subtitle text නැහැ.");
+    return;
+  }
+
+  const blob = new Blob(
+    ["\uFEFF" + text],
+    { type: "text/plain;charset=utf-8" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = "sinhala-subtitles.srt";
+  a.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 </script>
 </body>
